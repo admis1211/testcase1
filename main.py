@@ -24,7 +24,7 @@ app.mount("/static",StaticFiles(directory="static"),name="static")
 #    提示：@app.get + def + 类型注解 + 默认值 + return 字典
 @app.get("/api/hello")
 def hello(name: str = "世界"):
-    return {"message": f"你好，{name}！"}
+    return {"message": f"你好1，{name}！"}
 
 # 4. 路径参数 API
 #    需求：访问 /api/user/123 返回 {"user_id": 123, "name": "用户123"}
