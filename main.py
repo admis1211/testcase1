@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 # 1. 创建应用实例
 #    提示：FastAPI() 是整个应用的核心对象
 #    语法：变量名 = FastAPI(title="项目名")
-app = FastAPI(title="第一次学习")
+app = FastAPI(title="主分支版本")
 
 # 2. 挂载静态文件目录
 #    提示：把 static/ 目录暴露成 URL
