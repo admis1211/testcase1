@@ -1,0 +1,87 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:    # 允许手动触发
+
+jobs:
+  # ============================================================
+  # Job 1: 持续集成 (CI) — 代码检查 + 自动化测试
+  # ============================================================
+  ci:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]  # 多版本并行测试
+
+    steps:
+      # ---------- Stage 1: 代码检出 ----------
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      # ---------- Stage 2: 安装依赖 + 语法检查 ----------
+      - name: 设置 Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"                     # 缓存 pip 下载，加速后续构建
+
+      - name: 安装项目依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest httpx flake8
+
+      - name: 语法检查 (flake8)
+        run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # E9=语法错误, F63/F7=缩进/语法, F82=未定义变量
+        # 只检查会导致运行时崩溃的严重错误，不检查风格问题
+
+      # ---------- Stage 3: 自动化测试 ----------
+      - name: 运行测试 (pytest)
+        run: pytest test_main.py -v --tb=short
+
+  # ============================================================
+  # Job 2: 持续部署 (CD) — 仅在 main/master 分支 push 时触发
+  # ============================================================
+  deploy:
+    needs: ci                    # 必须等 CI 通过才能部署
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装依赖
+        run: |
+          pip install -r requirements.txt
+
+      - name: 验证服务可启动
+        run: |
+          # 后台启动服务，验证它能在 5 秒内正常响应
+          uvicorn main:app --host 0.0.0.0 --port 8000 &
+          sleep 3
+          curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/hello | grep 200
+          echo ""
+          echo "=== 服务启动验证通过 ==="
+          curl -s http://localhost:8000/api/hello
+          curl -s http://localhost:8000/api/user/42
+          kill %1 2>/dev/null || true
+
+      - name: 部署提示
+        run: |
+          echo "========================================="
+          echo "  CI/CD 流水线全部通过！"
+          echo "  项目: fastapi-learn"
+          echo "  提交: ${{ github.event.head_commit.message }}"
+          echo "  作者: ${{ github.event.head_commit.author.name }}"
+          echo "========================================="
